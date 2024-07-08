@@ -3,6 +3,7 @@ import fs from 'fs';
 import bodyParser from 'body-parser';
 import { exec } from 'child_process';
 import net from 'net';
+import { WebSocketServer } from 'ws';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -24,16 +25,19 @@ const getFileName = (): string => {
     return `${day}${month}${year}_${hours}${minutes}${seconds}${milliseconds}`;
 };
 
-const server = net.createServer(socket => {
+const wsServer = new WebSocketServer({ port: parseInt(PORT.toString()) }, () => {
+    console.log(`WebSocket Server listening on port ${PORT}`);
+});
+wsServer.on("connection", (socket, request) => {
     console.log('Client connected');
 
-    socket.on('data', data => {
+    socket.on('message', (data) => {
         try {
             console.log("data:", data.toString());
             const { language, sourceCode } = JSON.parse(data.toString()) as ExecutionRequest;
 
             if (!supportedLanguages.includes(language)) {
-                return socket.write(JSON.stringify({ error: 'Unsupported language' }));
+                return socket.send(JSON.stringify({ error: 'Unsupported language' }));
             }
 
             console.log(`language=${language}`);
@@ -55,8 +59,8 @@ const server = net.createServer(socket => {
                     console.error(`Error: ${stderr}`);
                 }
 
-                socket.write(JSON.stringify(executionResult));
-                socket.destroy();
+                socket.send(JSON.stringify(executionResult));
+                socket.close();
             });
         } catch (err) {
             console.log({
@@ -70,6 +74,52 @@ const server = net.createServer(socket => {
     });
 });
 
-server.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
-});
+// const server = net.createServer(socket => {
+//     console.log('Client connected');
+
+//     socket.on('data', data => {
+//         try {
+//             console.log("data:", data.toString());
+//             const { language, sourceCode } = JSON.parse(data.toString()) as ExecutionRequest;
+
+//             if (!supportedLanguages.includes(language)) {
+//                 return socket.write(JSON.stringify({ error: 'Unsupported language' }));
+//             }
+
+//             console.log(`language=${language}`);
+
+//             const fileName = `${getFileName()}.${language}`;
+//             const filePath = `/app/temp/${fileName}`;
+
+//             console.log({
+//                 filePath
+//             });
+
+//             fs.writeFileSync(filePath, sourceCode);
+
+//             exec(`sh scripts/execute.sh "${language}" "${filePath}"`, (error, stdout, stderr) => {
+//                 const executionResult: ExecutionResult = { output: stdout, error: stderr };
+//                 console.log("executionResult:", executionResult);
+//                 if (error) {
+//                     console.error(`Error executing code: ${error}`);
+//                     console.error(`Error: ${stderr}`);
+//                 }
+
+//                 socket.write(JSON.stringify(executionResult));
+//                 socket.destroy();
+//             });
+//         } catch (err) {
+//             console.log({
+//                 error: err
+//             });
+//         }
+//     });
+
+//     socket.on('end', () => {
+//         console.log('Client disconnected');
+//     });
+// });
+
+// server.listen(PORT, () => {
+//     console.log(`Server listening on port ${PORT}`);
+// });

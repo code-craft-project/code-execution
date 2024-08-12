@@ -18,6 +18,8 @@ RUN apk update && \
     
 # Create directories for storing code and executing scripts
 RUN mkdir /app
+RUN mkdir /app/temp
+
 WORKDIR /app
     
 # Copy
